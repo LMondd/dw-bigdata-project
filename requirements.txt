@@ -1,0 +1,27 @@
+# Pinned versions — update with care.
+# Run: pip install -r requirements.txt
+
+# Kafka
+confluent-kafka==2.5.3
+
+# AWS
+boto3==1.35.36
+
+# Data
+pandas==2.2.3
+pyarrow==17.0.0
+
+# HTTP / API
+requests==2.32.3
+tenacity==9.0.0  # retry logic for producers
+
+# Config
+python-dotenv==1.0.1
+
+# Dev / lint / test
+black==24.10.0
+pytest==8.3.3
+mypy==1.13.0
+
+# Hot-path live dashboard (optional)
+streamlit==1.39.0
