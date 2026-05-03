@@ -25,7 +25,7 @@ CITIES = [
     {"name": "Bangkok", "city_id": 1609350},
     {"name": "Chiang Mai", "city_id": 1153671},
     {"name": "Phuket", "city_id": 1151254},
-    {"name": "Pattaya", "city_id": 1151182},
+    {"name": "Pattaya", "city_id": 1607981},
     {"name": "Chon Buri", "city_id": 1153673},
 ]
 
