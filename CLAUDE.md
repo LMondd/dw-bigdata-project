@@ -57,6 +57,7 @@ SOURCES → KAFKA → ┬─ HOT PATH  → DynamoDB → live dashboard
 - **Kafka topics are the only source of truth for inbound events.** S3 Bronze is downstream.
 - **Bronze is append-only.** Silver/Gold can be overwritten.
 - **No PII or credentials in any topic, S3 path, or git commit.**
+- **AWS Region:** ap-southeast-1 (Singapore) — all resources must be in this region
 
 ---
 
