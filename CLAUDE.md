@@ -293,10 +293,11 @@ Before suggesting code that creates AWS resources, Claude Code should:
 > Update this section as decisions get made or open questions resolve.
 
 - [ ] Confirm AWS budget amount with instructor (currently assuming $75)
-- [ ] Decide hot-path consumer: Lambda vs self-managed EC2 Python consumer (leaning Lambda)
-- [ ] Decide Airflow yes/no based on schedule progress at end of Phase 5
-- [ ] Pick Air4Thai endpoint variant (depends on what historical access is available)
-- [ ] Decide on QuickSight Standard vs Enterprise (Standard unless need ML insights)
+- [x] Decide hot-path consumer: Lambda vs self-managed EC2 Python consumer → **self-managed EC2 Python consumer** (simpler, no MSK trigger needed)
+- [x] Decide Airflow yes/no → **skipped** (Glue Workflow fully satisfies the 1% rubric item; Airflow would cost 4-6 hr with zero extra rubric points)
+- [x] Pick Air4Thai endpoint variant → live API, no historical backfill (3 days of real data in Gold)
+- [x] Decide on QuickSight Standard vs Enterprise → **Standard**, 30-day free trial activated May 2026
+- [x] AWS account confusion resolved: project lives in SSO student account 354674817227, not personal account 588738614911. Always use SSO credentials from the access portal for CLI work.
 
 ---
 
