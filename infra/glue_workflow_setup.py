@@ -90,33 +90,36 @@ def ensure_email_subscription(sns: Any, topic_arn: str, email: str) -> None:
 
 
 def set_sns_policy_for_eventbridge(sns: Any, topic_arn: str, account_id: str) -> None:
-    # Replace topic policy with the minimum needed: account-owner full access plus
-    # EventBridge service publish permission. Anything else previously attached is dropped.
-    policy: Dict[str, Any] = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "DefaultOwner",
-                "Effect": "Allow",
-                "Principal": {"AWS": f"arn:aws:iam::{account_id}:root"},
-                "Action": "sns:*",
-                "Resource": topic_arn,
-            },
-            {
-                "Sid": "AllowEventBridgePublish",
-                "Effect": "Allow",
-                "Principal": {"Service": "events.amazonaws.com"},
-                "Action": "sns:Publish",
-                "Resource": topic_arn,
-            },
-        ],
+    # SNS topic policies only accept the scoped action list (SNS:Publish, SNS:Subscribe,
+    # etc.) — wildcard "sns:*" is rejected with "action out of service scope".
+    # Cleanest path: fetch the AWS-managed default policy that ships with new topics
+    # (it grants the account owner the right scoped actions) and append our statement.
+    attrs = sns.get_topic_attributes(TopicArn=topic_arn)["Attributes"]
+    existing: Dict[str, Any] = json.loads(attrs.get("Policy", '{"Version":"2012-10-17","Statement":[]}'))
+    statements: List[Dict[str, Any]] = [
+        s for s in existing.get("Statement", []) if s.get("Sid") != "AllowEventBridgePublish"
+    ]
+    statements.append(
+        {
+            "Sid": "AllowEventBridgePublish",
+            "Effect": "Allow",
+            "Principal": {"Service": "events.amazonaws.com"},
+            "Action": "SNS:Publish",
+            "Resource": topic_arn,
+        }
+    )
+    new_policy: Dict[str, Any] = {
+        "Version": existing.get("Version", "2012-10-17"),
+        "Id": existing.get("Id", "__default_policy_ID"),
+        "Statement": statements,
     }
     sns.set_topic_attributes(
         TopicArn=topic_arn,
         AttributeName="Policy",
-        AttributeValue=json.dumps(policy),
+        AttributeValue=json.dumps(new_policy),
     )
     log.info("SNS topic policy updated to allow EventBridge publish.")
+    _ = account_id  # unused now; kept in signature so call sites don't change
 
 
 def ensure_eventbridge_rule(events: Any, sns_topic_arn: str) -> None:
