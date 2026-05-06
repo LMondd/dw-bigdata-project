@@ -78,22 +78,30 @@ if not has_existing:
 else:
     # Subsequent load — SCD2 merge
     print("Subsequent load — performing SCD2 merge...")
-    current_dim = spark.read.parquet(GOLD_STATION).filter(F.col("is_current") == True)
-    historical_dim = spark.read.parquet(GOLD_STATION).filter(F.col("is_current") == False)
+    # Cache the existing dim so Spark doesn't try to re-read S3 during the
+    # overwrite write (which deletes the source files first).
+    existing = spark.read.parquet(GOLD_STATION).cache()
+    existing.count()
+    current_dim = existing.filter(F.col("is_current") == True)
+    historical_dim = existing.filter(F.col("is_current") == False)
 
-    # Find changed stations
-    joined = incoming.join(
-        current_dim.select("station_id", "station_name_en", "area_en", "lat", "lon"),
-        on="station_id",
-        how="left"
+    # Find changed stations: rename current-side columns so the join doesn't
+    # produce two columns named "station_name_en" (which Spark rejects as
+    # ambiguous), then compare incoming vs current with null-safe equality.
+    current_subset = (
+        current_dim.select("station_id", "station_name_en", "area_en", "lat", "lon")
+        .withColumnRenamed("station_name_en", "cur_station_name_en")
+        .withColumnRenamed("area_en", "cur_area_en")
+        .withColumnRenamed("lat", "cur_lat")
+        .withColumnRenamed("lon", "cur_lon")
     )
+    joined = incoming.join(current_subset, on="station_id", how="inner")
 
-    # Stations that changed attributes
     changed = joined.filter(
-        (F.col("station_name_en") != F.col("station_name_en")) |
-        (F.col("area_en") != F.col("area_en")) |
-        (F.col("lat") != F.col("lat")) |
-        (F.col("lon") != F.col("lon"))
+        (~F.col("station_name_en").eqNullSafe(F.col("cur_station_name_en"))) |
+        (~F.col("area_en").eqNullSafe(F.col("cur_area_en"))) |
+        (~F.col("lat").eqNullSafe(F.col("cur_lat"))) |
+        (~F.col("lon").eqNullSafe(F.col("cur_lon")))
     ).select(incoming.columns)
 
     # New stations not in current dim
@@ -127,10 +135,11 @@ else:
         .withColumn("expiry_date", F.lit(FAR_FUTURE)) \
         .withColumn("is_current", F.lit(True))
 
-    # Combine all
-    final_dim = unchanged.union(closed).union(historical_dim).union(to_insert)
+    # Combine all and force materialization before overwriting source.
+    final_dim = unchanged.union(closed).union(historical_dim).union(to_insert).cache()
+    row_count = final_dim.count()
     final_dim.write.mode("overwrite").parquet(GOLD_STATION)
-    print(f"dim_station after SCD2 merge: {final_dim.count()} rows")
+    print(f"dim_station after SCD2 merge: {row_count} rows")
 
 print("dim_station SCD2 load complete")
 job.commit()

@@ -68,8 +68,12 @@ if not has_existing:
 
 else:
     print("Subsequent load — performing SCD2 merge...")
-    current_dim = spark.read.parquet(GOLD_SENSOR).filter(F.col("is_current") == True)
-    historical_dim = spark.read.parquet(GOLD_SENSOR).filter(F.col("is_current") == False)
+    # Cache the existing dim so Spark doesn't try to re-read S3 during the
+    # overwrite write (which deletes the source files first).
+    existing = spark.read.parquet(GOLD_SENSOR).cache()
+    existing.count()
+    current_dim = existing.filter(F.col("is_current") == True)
+    historical_dim = existing.filter(F.col("is_current") == False)
 
     new_sensors = incoming.join(
         current_dim.select("sensor_id"),
@@ -90,8 +94,11 @@ else:
     else:
         final_dim = current_dim.union(historical_dim)
 
+    # Force materialization before overwriting the source path.
+    final_dim = final_dim.cache()
+    row_count = final_dim.count()
     final_dim.write.mode("overwrite").parquet(GOLD_SENSOR)
-    print(f"dim_sensor after merge: {final_dim.count()} rows")
+    print(f"dim_sensor after merge: {row_count} rows")
 
 print("dim_sensor SCD2 load complete")
 job.commit()
