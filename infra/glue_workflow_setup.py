@@ -59,7 +59,8 @@ FACT_JOBS: List[str] = [
     "silver-to-gold-facts",
     "silver-to-gold-fct-weather-hourly",
 ]
-ALL_JOBS: List[str] = BRONZE_TO_SILVER_JOBS + DIM_JOBS + FACT_JOBS
+ANOMALY_JOB: str = "silver-to-gold-fct-sensor-anomaly"
+ALL_JOBS: List[str] = BRONZE_TO_SILVER_JOBS + DIM_JOBS + FACT_JOBS + [ANOMALY_JOB]
 
 # Every 6 hours at minute 0. AWS cron format: min hr dom mon dow yr
 SCHEDULE_CRON = "cron(0 */6 * * ? *)"
@@ -234,6 +235,25 @@ def build_triggers(glue: Any) -> None:
         WorkflowName=WORKFLOW_NAME,
         StartOnCreation=True,
         Description="Fires when all 3 dim jobs succeed.",
+    )
+
+    # Stage 4: both fact jobs SUCCEEDED -> anomaly event fact.
+    # Reads from fct_sensor_reading Gold so must run after Stage 3 completes.
+    recreate_trigger(
+        glue,
+        Name=f"{WORKFLOW_NAME}-after-facts",
+        Type="CONDITIONAL",
+        Predicate={
+            "Logical": "AND",
+            "Conditions": [
+                {"LogicalOperator": "EQUALS", "JobName": j, "State": "SUCCEEDED"}
+                for j in FACT_JOBS
+            ],
+        },
+        Actions=[{"JobName": ANOMALY_JOB}],
+        WorkflowName=WORKFLOW_NAME,
+        StartOnCreation=True,
+        Description="Fires when both fact jobs succeed — builds anomaly event history.",
     )
 
 
