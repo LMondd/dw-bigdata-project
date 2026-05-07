@@ -1,7 +1,7 @@
 # Lambda Architecture — Bangkok Air Quality & IoT Sensor Pipeline
 
 Course project for **2190436 Data Warehousing / 2190518 Big Data & Data Engineering (2025/2)**
-at Chulalongkorn University. Solo project, May 2026.
+at Chulalongkorn University. May 2026.
 
 > A production-style Lambda architecture that ingests real Bangkok air quality data and a
 > synthetic high-frequency IoT sensor stream into Kafka, with a hot path for sub-minute
