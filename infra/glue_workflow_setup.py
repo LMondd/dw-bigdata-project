@@ -55,8 +55,11 @@ DIM_JOBS: List[str] = [
     "silver-to-gold-dim-station-scd2",
     "silver-to-gold-dim-sensor-scd2",
 ]
-FACT_JOB: str = "silver-to-gold-facts"
-ALL_JOBS: List[str] = BRONZE_TO_SILVER_JOBS + DIM_JOBS + [FACT_JOB]
+FACT_JOBS: List[str] = [
+    "silver-to-gold-facts",
+    "silver-to-gold-fct-weather-hourly",
+]
+ALL_JOBS: List[str] = BRONZE_TO_SILVER_JOBS + DIM_JOBS + FACT_JOBS
 
 # Every 6 hours at minute 0. AWS cron format: min hr dom mon dow yr
 SCHEDULE_CRON = "cron(0 */6 * * ? *)"
@@ -227,7 +230,7 @@ def build_triggers(glue: Any) -> None:
                 for j in DIM_JOBS
             ],
         },
-        Actions=[{"JobName": FACT_JOB}],
+        Actions=[{"JobName": j} for j in FACT_JOBS],
         WorkflowName=WORKFLOW_NAME,
         StartOnCreation=True,
         Description="Fires when all 3 dim jobs succeed.",
