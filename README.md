@@ -1,7 +1,7 @@
 # Lambda Architecture — Bangkok Air Quality & IoT Sensor Pipeline
 
 Course project for **2190436 Data Warehousing / 2190518 Big Data & Data Engineering (2025/2)**
-at Chulalongkorn University. May 2026.
+at Chulalongkorn University. Group project (3 students), May 2026.
 
 > A production-style Lambda architecture that ingests real Bangkok air quality data and a
 > synthetic high-frequency IoT sensor stream into Kafka, with a hot path for sub-minute
@@ -43,7 +43,7 @@ Synthetic IoT gen ─────► sensor-stream  (×6) ──────► 
 
 | Dimension | Implementation |
 |---|---|
-| **Volume** | Synthetic IoT stream backfilled 30 days → **25.9 M rows** in `fct_sensor_reading`; **362K anomaly events** in `fct_sensor_anomaly_event`; total Gold layer >26 M rows processed by Spark |
+| **Volume** | Synthetic IoT stream backfilled 30 days → **25.9 M rows** in `fct_sensor_reading`; **362,738 anomaly events** in `fct_sensor_anomaly_event`; total Gold layer >26 M rows processed by Spark |
 | **Velocity** | Hot path: Kafka → DynamoDB in **<1 minute** end-to-end; anomaly detection on every sensor tick (5-second cadence, 50 sensors) |
 | **Variety** | Three heterogeneous sources: REST API with JSON (Air4Thai), REST API (OpenWeather), synthetic binary stream — different schemas, cadences, and semantics unified in one warehouse |
 
@@ -61,7 +61,7 @@ Synthetic IoT gen ─────► sensor-stream  (×6) ──────► 
 | Orchestration | AWS Glue Workflow (4-stage DAG, EventBridge→SNS failure alerts) |
 | Data lake | S3 medallion architecture (Bronze / Silver / Gold) |
 | Query engine | Amazon Athena (serverless, Parquet columnar) |
-| BI | Amazon QuickSight (2-sheet dashboard: overview + detail) |
+| BI | Amazon QuickSight (3-sheet dashboard: National Overview, IoT Sensors, Station Detail) |
 | Live dashboard | Streamlit (polls DynamoDB every 5 s) |
 | Infrastructure | AWS EC2 t3.medium (ap-southeast-1), IAM roles, S3 lifecycle |
 
@@ -73,11 +73,11 @@ Synthetic IoT gen ─────► sensor-stream  (×6) ──────► 
 
 | Table | Grain | Rows | Source |
 |---|---|---|---|
-| `fct_air_quality_hourly` | One row per station per hour | 2,613 | Air4Thai |
-| `fct_pollution_daily_summary` | One row per station per day | 558 | Air4Thai |
-| `fct_weather_hourly` | One row per city per hour | 292 | OpenWeather |
+| `fct_air_quality_hourly` | One row per station per hour | 12,073 | Air4Thai |
+| `fct_pollution_daily_summary` | One row per station per day | 1,486 | Air4Thai |
+| `fct_weather_hourly` | One row per city per hour | 1,120 | OpenWeather |
 | `fct_sensor_reading` | One row per sensor per 5-second tick | 25,920,000 | Synthetic IoT |
-| `fct_sensor_anomaly_event` | One row per anomaly detected | 362,721 | Cold path reprocess of hot-path events |
+| `fct_sensor_anomaly_event` | One row per anomaly detected | 362,738 | Cold path reprocess of hot-path events |
 
 ### Dimensions
 
@@ -171,4 +171,5 @@ aws glue start-workflow-run --name dw-bigdata-cold-path --region ap-southeast-1
 - **SCD2 on dim_station and dim_sensor** — stations get recalibrated/relocated; tracking history is required for fair time-series comparison
 - **DynamoDB on-demand + TTL** — zero idle cost, sub-second reads, auto-cleanup of stale hot-path records
 - **All timestamps stored in UTC** — Bangkok time (UTC+7) applied only at the QuickSight presentation layer via calculated field
-- **`fct_sensor_anomaly_event` reads from Gold `fct_sensor_reading`** — cold path reprocesses the full 30-day history independently from the hot path (DynamoDB), validating both paths agree (362,721 cold vs 362,734 hot — delta explained by 24hr DynamoDB TTL)
+- **`fct_sensor_anomaly_event` reads from Gold `fct_sensor_reading`** — cold path reprocesses the full 30-day history independently from the hot path (DynamoDB), validating both paths agree (362,738 cold vs 362,734 hot — delta explained by 24hr DynamoDB TTL)
+- **8 days of real air quality data** — 186 stations monitored across Thailand, 12,073 hourly readings; 76.3% of hours exceed WHO PM2.5 guideline of 15 µg/m³
